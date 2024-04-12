@@ -6,19 +6,27 @@ from datetime import datetime, timedelta
 
 async def fetch_exchange_rate(session, date):
     url = f"https://api.privatbank.ua/p24api/exchange_rates?json&date={date.strftime('%d.%m.%Y')}"
-    async with session.get(url) as response:
-        if response.status != 200:
-            return {date.strftime('%d.%m.%Y'): 'Error fetching data'}
-        data = await response.json()
-        rates = data.get('exchangeRate', [])
-        rate_dict = {}
-        for rate in rates:
-            if rate.get('currency') in ['USD', 'EUR']:
-                rate_dict[rate['currency']] = {
-                    'sale': rate.get('saleRate', 'N/A'),
-                    'purchase': rate.get('purchaseRate', 'N/A')
-                }
-        return {date.strftime('%d.%m.%Y'): rate_dict}
+    try:
+        async with session.get(url) as response:
+            if response.status != 200:
+                print(f"Error fetching data for {date.strftime('%d.%m.%Y')}: HTTP {response.status}")
+                return {date.strftime('%d.%m.%Y'): 'Error fetching data'}
+            data = await response.json()
+            rates = data.get('exchangeRate', [])
+            rate_dict = {}
+            for rate in rates:
+                if rate.get('currency') in ['USD', 'EUR']:
+                    rate_dict[rate['currency']] = {
+                        'sale': rate.get('saleRate', 'N/A'),
+                        'purchase': rate.get('purchaseRate', 'N/A')
+                    }
+            return {date.strftime('%d.%m.%Y'): rate_dict}
+    except aiohttp.ClientError as e:
+        print(f"Network error occurred: {e}")
+        return {date.strftime('%d.%m.%Y'): 'Network error'}
+    except asyncio.TimeoutError:
+        print(f"Timeout occurred for {date.strftime('%d.%m.%Y')}")
+        return {date.strftime('%d.%m.%Y'): 'Timeout error'}
 
 
 async def main(days):
